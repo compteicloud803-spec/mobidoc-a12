@@ -31,24 +31,26 @@ except ImportError:
     Fore = Style = DummyColor()
 
 
-# ────────────────────────────────────────────────────────────────
-#  CONFIGURATION DU PATH POUR L’APPLICATION COMPILÉE
-# ────────────────────────────────────────────────────────────────
-def configure_path():
-    extra_paths = [
-        "/opt/homebrew/bin",   # Apple Silicon
-        "/usr/local/bin",      # Intel
-        "/usr/local/sbin",
-        "/opt/homebrew/sbin"
+# ——— Helper pour trouver les binaires ———
+def find_executable(name: str) -> Optional[str]:
+    """Cherche un exécutable dans les chemins courants et Homebrew."""
+    # Chemins possibles
+    paths = [
+        name,
+        f"/opt/homebrew/bin/{name}",
+        f"/usr/local/bin/{name}",
+        f"/opt/homebrew/sbin/{name}",
+        f"/usr/local/sbin/{name}",
     ]
-    current = os.environ.get("PATH", "")
-    for p in extra_paths:
-        if p not in current and os.path.exists(p):
-            os.environ["PATH"] = f"{p}:{current}"
-    # Débogage optionnel
-    # print(f"[DEBUG] PATH = {os.environ['PATH']}")
-
-configure_path()
+    # Ajouter le PATH actuel
+    for p in os.environ.get("PATH", "").split(os.pathsep):
+        full = os.path.join(p, name)
+        if full not in paths:
+            paths.append(full)
+    for p in paths:
+        if p and os.path.exists(p) and os.access(p, os.X_OK):
+            return p
+    return None
 
 
 # ——— Utility ———
@@ -290,12 +292,13 @@ class MainWindow(QMainWindow):
         self.activateButton.setEnabled(True)
 
     # ------------------------------------------------------------
-    # Méthodes métier (avec recherche du chemin absolu)
+    # Méthodes métier avec recherche absolue des binaires
     # ------------------------------------------------------------
     def _run_cmd(self, cmd, timeout=None):
         if not cmd:
             return 1, "", "Empty command"
-        cmd_path = shutil.which(cmd[0])
+        # Trouver le chemin absolu de la commande
+        cmd_path = find_executable(cmd[0])
         if not cmd_path:
             self.log(f"Command not found: {cmd[0]}", "error")
             return 1, "", f"Command not found: {cmd[0]}"
@@ -748,7 +751,6 @@ class MainWindow(QMainWindow):
         self.activateButton.setText("⏳ Connecting to device...")
         QApplication.processEvents()
 
-        # Utilisation de _run_cmd pour la détection initiale
         code, output, _ = self._run_cmd(["ideviceinfo"])
         if code != 0:
             self.log("Failed to connect to device!", "error")
@@ -1014,7 +1016,6 @@ class MainWindow(QMainWindow):
             "none": "•",
         }.get(type, "•")
         timestamp = datetime.datetime.now().strftime("%H:%M:%S")
-        line = f'<span style="color:{color};">[{timestamp}] {prefix} {text}</span>'
         self.status_label.setText(text)
         self.status_label.setVisible(True)
         QApplication.processEvents()
@@ -1022,7 +1023,6 @@ class MainWindow(QMainWindow):
 
 
 if __name__ == "__main__":
-    configure_path()
     app = QApplication(sys.argv)
     app.setApplicationName("MobiDoc A12+")
     icon_path = resource_path("img/logo.icns")
