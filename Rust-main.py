@@ -33,8 +33,6 @@ except ImportError:
 
 # ——— Helper pour trouver les binaires ———
 def find_executable(name: str) -> Optional[str]:
-    """Cherche un exécutable dans les chemins courants et Homebrew."""
-    # Chemins possibles
     paths = [
         name,
         f"/opt/homebrew/bin/{name}",
@@ -42,7 +40,6 @@ def find_executable(name: str) -> Optional[str]:
         f"/opt/homebrew/sbin/{name}",
         f"/usr/local/sbin/{name}",
     ]
-    # Ajouter le PATH actuel
     for p in os.environ.get("PATH", "").split(os.pathsep):
         full = os.path.join(p, name)
         if full not in paths:
@@ -53,7 +50,6 @@ def find_executable(name: str) -> Optional[str]:
     return None
 
 
-# ——— Utility ———
 def resource_path(relative_path: str) -> str:
     if hasattr(sys, "_MEIPASS"):
         return str(Path(sys._MEIPASS) / relative_path)
@@ -69,7 +65,6 @@ def resource_path(relative_path: str) -> str:
 
 class ClickableLabel(QLabel):
     clicked = Signal()
-
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             self.clicked.emit()
@@ -85,11 +80,9 @@ class SuccessDialog(QDialog):
             QDialog { background-color: #000000; border-radius: 12px; }
             QLabel  { color: white; border: none; background: transparent; }
         """)
-
         layout = QHBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(16)
-
         icon_lbl = QLabel()
         icon_lbl.setFixedSize(64, 64)
         logo_path = resource_path("img/logo.icns")
@@ -119,17 +112,13 @@ class SuccessDialog(QDialog):
             p.end()
         icon_lbl.setPixmap(pix)
         layout.addWidget(icon_lbl)
-
         right = QVBoxLayout()
         right.setSpacing(6)
-
         title = QLabel("MobiDoc A12+")
         title.setStyleSheet("font-size: 14px; font-weight: bold; color: white;")
-
         msg = QLabel(f"Your Device {device_name} iOS {ios_version}\nhas been Activated Successfully! 🎉")
         msg.setStyleSheet("font-size: 12px; color: #cccccc;")
         msg.setWordWrap(True)
-
         ok_btn = QPushButton("Ok")
         ok_btn.setFixedWidth(70)
         ok_btn.setStyleSheet("""
@@ -145,11 +134,9 @@ class SuccessDialog(QDialog):
             QPushButton:pressed { background-color: #0D47A1; }
         """)
         ok_btn.clicked.connect(self.accept)
-
         btn_row = QHBoxLayout()
         btn_row.addStretch()
         btn_row.addWidget(ok_btn)
-
         right.addWidget(title)
         right.addWidget(msg)
         right.addLayout(btn_row)
@@ -160,7 +147,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("MobiDoc A12+")
-        self.setFixedSize(500, 280)
+        self.setFixedSize(700, 380)   # Plus large pour éviter la coupure
 
         font_path = resource_path("fonts/FuturaCyrillicBold.ttf")
         if os.path.exists(font_path):
@@ -170,7 +157,7 @@ class MainWindow(QMainWindow):
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
 
-        self.api_url = "https://api.mobidocserver.com/mac/get2.php"
+        self.api_url = "https://api.mobidocserver.com/mac/public/get2.php"
         self.timeouts = {
             'asset_wait': 300,
             'asset_delete_delay': 15,
@@ -203,6 +190,8 @@ class MainWindow(QMainWindow):
         for lbl in (self.lbl_uuid, self.lbl_device, self.lbl_ecid, self.lbl_imei_sn):
             lbl.setAlignment(Qt.AlignCenter)
             lbl.setStyleSheet("color: white; font-size: 11px;")
+            lbl.setWordWrap(True)               # Retour à la ligne automatique
+            lbl.setMinimumHeight(30)
 
         self.pbFrame = QFrame()
         self.pbFrame.setFixedHeight(12)
@@ -216,6 +205,7 @@ class MainWindow(QMainWindow):
         self.status_label = QLabel("No device connected")
         self.status_label.setAlignment(Qt.AlignCenter)
         self.status_label.setStyleSheet("color: white; font-size: 11px;")
+        self.status_label.setWordWrap(True)
 
         self.activateButton = QPushButton("Activate Device")
         self.activateButton.setEnabled(False)
@@ -243,7 +233,6 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.activateButton)
 
         self.pbFrame.hide()
-
         self.activateButton.clicked.connect(self.StartThread)
 
         self.poll_timer = QTimer(self)
@@ -292,12 +281,11 @@ class MainWindow(QMainWindow):
         self.activateButton.setEnabled(True)
 
     # ------------------------------------------------------------
-    # Méthodes métier avec recherche absolue des binaires
+    # Méthodes métier (avec find_executable)
     # ------------------------------------------------------------
     def _run_cmd(self, cmd, timeout=None):
         if not cmd:
             return 1, "", "Empty command"
-        # Trouver le chemin absolu de la commande
         cmd_path = find_executable(cmd[0])
         if not cmd_path:
             self.log(f"Command not found: {cmd[0]}", "error")
@@ -656,7 +644,7 @@ class MainWindow(QMainWindow):
         self.log(text=f"Requesting all URLs from server: {url}", type="info")
         code, out, err = self._run_cmd(["curl", "-s", "-k", url])
         if code != 0:
-            self.log(text=f"Server request failed: {err}", type="error")
+            self.log(text=f"Server request failed (curl code {code}): {err}", type="error")
             return None, None, None
         try:
             data = json.loads(out)
@@ -666,7 +654,8 @@ class MainWindow(QMainWindow):
                 stage3_url = data['links']['step3_final']
                 return stage1_url, stage2_url, stage3_url
             else:
-                self.log(text="Server returned error response", type="error")
+                error_msg = data.get('message', 'Unknown error')
+                self.log(text=f"Server returned error: {error_msg}", type="error")
                 return None, None, None
         except json.JSONDecodeError:
             self.log(text="Server did not return valid JSON", type="error")
@@ -783,6 +772,10 @@ class MainWindow(QMainWindow):
             self.log("Failed to get URLs from server", "error")
             self.activateButton.setText("❌ Failed to get URLs from server!")
             self.pb.setStyleSheet("background-color: rgb(252, 0, 6); border-radius: 5px;")
+            # Afficher un message plus explicite
+            QMessageBox.critical(self, "Server Error", 
+                "Impossible de récupérer les URLs depuis le serveur.\n"
+                "Vérifiez que votre GUID est valide et que le serveur est accessible.")
             QApplication.processEvents()
             return
 
@@ -958,7 +951,6 @@ class MainWindow(QMainWindow):
                 self.device_info = {}
                 time.sleep(2)
                 continue
-
             try:
                 ProductVersion = output.split("ProductVersion: ")[1].split("\n")[0]
                 ProductType = output.split("ProductType: ")[1].split("\n")[0]
@@ -973,7 +965,6 @@ class MainWindow(QMainWindow):
                 self.showPopup("Error", "Could not get device info!", "warning")
                 time.sleep(2)
                 continue
-
             self.device_info = {
                 "ProductType": ProductType,
                 "iOSVersion": ProductVersion,
@@ -995,25 +986,14 @@ class MainWindow(QMainWindow):
 
     def log(self, text: str, type: str = "info"):
         colors = {
-            "info": "#88AAFF",
-            "warning": "#FFFF88",
-            "warn": "#FFFF88",
-            "error": "#FF6666",
-            "success": "#66FF88",
-            "attempt": "#88CCFF",
-            "progress": "#CCCCCC",
-            "none": "#D0D8FF",
+            "info": "#88AAFF", "warning": "#FFFF88", "warn": "#FFFF88",
+            "error": "#FF6666", "success": "#66FF88", "attempt": "#88CCFF",
+            "progress": "#CCCCCC", "none": "#D0D8FF",
         }
         color = colors.get(type, "#FFFFFF")
         prefix = {
-            "info": "ℹ",
-            "warning": "⚠",
-            "warn": "⚠",
-            "error": "✗",
-            "success": "✓",
-            "attempt": "⟳",
-            "progress": "⏳",
-            "none": "•",
+            "info": "ℹ", "warning": "⚠", "warn": "⚠", "error": "✗",
+            "success": "✓", "attempt": "⟳", "progress": "⏳", "none": "•",
         }.get(type, "•")
         timestamp = datetime.datetime.now().strftime("%H:%M:%S")
         self.status_label.setText(text)
