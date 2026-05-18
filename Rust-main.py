@@ -4,7 +4,6 @@ import sys
 import re
 import time
 import json
-import struct
 import shutil
 import sqlite3
 import tempfile
@@ -12,12 +11,10 @@ import binascii
 import threading
 import datetime
 import subprocess
-import urllib.parse
 from collections import Counter
 from typing import Optional
 from pathlib import Path
 
-# PySide6 imports (ONLY PySide6 — NO PyQt5)
 from PySide6.QtCore import Qt, QCoreApplication, QTimer, Signal
 from PySide6.QtGui import QFontDatabase, QFont, QIcon, QPixmap, QPainter, QColor, QPainterPath
 from PySide6.QtWidgets import (
@@ -35,24 +32,22 @@ except ImportError:
 
 
 # ────────────────────────────────────────────────────────────────
-#  CORRECTION POUR LE PATH DANS L’APPLICATION COMPILÉE
+#  CONFIGURATION DU PATH POUR L’APPLICATION COMPILÉE
 # ────────────────────────────────────────────────────────────────
 def configure_path():
-    """Ajoute les chemins Homebrew au PATH pour que les outils soient trouvés."""
     extra_paths = [
-        "/opt/homebrew/bin",   # Apple Silicon (M1/M2/M3)
-        "/usr/local/bin",      # Intel Mac
+        "/opt/homebrew/bin",   # Apple Silicon
+        "/usr/local/bin",      # Intel
         "/usr/local/sbin",
         "/opt/homebrew/sbin"
     ]
-    current_path = os.environ.get("PATH", "")
+    current = os.environ.get("PATH", "")
     for p in extra_paths:
-        if p not in current_path and os.path.exists(p):
-            os.environ["PATH"] = f"{p}:{current_path}"
-    # Optionnel : afficher le PATH dans la console pour déboguer
+        if p not in current and os.path.exists(p):
+            os.environ["PATH"] = f"{p}:{current}"
+    # Débogage optionnel
     # print(f"[DEBUG] PATH = {os.environ['PATH']}")
 
-# Exécuter immédiatement la configuration du PATH
 configure_path()
 
 
@@ -165,17 +160,14 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("MobiDoc A12+")
         self.setFixedSize(500, 280)
 
-        # Charger police
         font_path = resource_path("fonts/FuturaCyrillicBold.ttf")
         if os.path.exists(font_path):
             QFontDatabase.addApplicationFont(font_path)
 
-        # Icône de la fenêtre (et du dock via app)
         icon_path = resource_path("img/logo.icns")
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
 
-        # Variables d'état (inchangées)
         self.api_url = "https://api.mobidocserver.com/mac/get2.php"
         self.timeouts = {
             'asset_wait': 300,
@@ -193,7 +185,7 @@ class MainWindow(QMainWindow):
         self.GUID_REGEX = re.compile(r'[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}', re.IGNORECASE)
         self.temp_dir = tempfile.gettempdir()
 
-        # UI - Nouvelle interface type Mobidoc
+        # UI
         self.centralwidget = QWidget()
         self.setCentralWidget(self.centralwidget)
         layout = QVBoxLayout(self.centralwidget)
@@ -210,7 +202,6 @@ class MainWindow(QMainWindow):
             lbl.setAlignment(Qt.AlignCenter)
             lbl.setStyleSheet("color: white; font-size: 11px;")
 
-        # Barre de progression (style original avec QFrame)
         self.pbFrame = QFrame()
         self.pbFrame.setFixedHeight(12)
         self.pbFrame.setStyleSheet("background-color: rgb(2, 33, 51); border-radius: 5px;")
@@ -298,20 +289,16 @@ class MainWindow(QMainWindow):
         self.status_label.setVisible(False)
         self.activateButton.setEnabled(True)
 
-    # ────────────────────────────────────────────────────────────────
-    # MÉTHODES MÉTIER (inchangées sauf _run_cmd pour utiliser which)
-    # ────────────────────────────────────────────────────────────────
+    # ------------------------------------------------------------
+    # Méthodes métier (avec recherche du chemin absolu)
+    # ------------------------------------------------------------
     def _run_cmd(self, cmd, timeout=None):
-        """Run a subprocess command, return (returncode, stdout, stderr)
-           with automatic resolution of command path."""
         if not cmd:
             return 1, "", "Empty command"
-        # Cherche le chemin absolu de la commande
         cmd_path = shutil.which(cmd[0])
         if not cmd_path:
             self.log(f"Command not found: {cmd[0]}", "error")
             return 1, "", f"Command not found: {cmd[0]}"
-        # Remplacer le nom de la commande par son chemin absolu
         full_cmd = [cmd_path] + cmd[1:]
         try:
             res = subprocess.run(full_cmd, capture_output=True, text=True, timeout=timeout)
@@ -384,9 +371,6 @@ class MainWindow(QMainWindow):
         self.log("Verifying system dependencies...", "info")
         self.afc_mode = "pymobiledevice3"
         self.log(f"AFC Transfer Mode: {self.afc_mode}", "info")
-
-    def _cleanup(self):
-        pass
 
     def detect_device(self):
         self.log("Detecting device...", "info")
@@ -545,1035 +529,505 @@ class MainWindow(QMainWindow):
             if len(parts) != 5:
                 return False
             if not (len(parts[0]) == 8 and len(parts[1]) == len(parts[2]) == len(parts[3]) == 4 and len(parts[4]) == 12):
-               ):
-                return False return False
-           
-            hex_ch hex_chars =ars = set('012 set('34567890123456789ABCDEFABCDEF')
-           ')
-            clean = clean = guid.replace('-', guid.replace('-', ' '')
-            if')
-            if not all not all(c in hex_ch(c in hex_chars forars for c in c in clean clean):
-                return False):
                 return False
-            if parts[2
-            if parts[2][0] != '][0] != '44':
-                return':
-                return False False
-            if parts
-            if parts[3[3][0]][0] not in not in '89AB '89AB':
-                return':
-                return False False
-            return
-            return True True
-        except
-        except Exception Exception:
-            return:
-            return False False
-
-    def
-
-    def get_context_string(self, data get_context_string(self, data, start, end, start, context, end, context_size=_size=5050):
-        context):
-        context_start =_start = max(0, max(0, start - start - context_size context_size)
-       )
-        context_end context_end = min = min(len(data(len(data), end), end + context + context_size_size)
-        context)
-        context = data = data[context[context_start:_start:context_endcontext_end]
-       ]
-        try:
-            return context.decode('utf try:
-            return context.decode('utf--8',8 errors='replace', errors='replace')
-       ')
-        except except:
-            return:
-            return binasci binascii.i.hexlhexlify(contextify(context).decode).decode('asci('asciii')
-
-    def analyze_')
-
-    defguid_ analyze_guid_confidence(self, guidconfidence(self_candidates, guid):
-       _candidates):
-        if not guid_c if not guid_candidatesandidates:
-            return:
-            return None None
-        guid
-        guid_counts =_counts = Counter(c Counter(candidate['andidate['guid']guid'] for candidate for candidate in guid in guid_candidates_candidates)
-        scored_)
-        scored_guidsguids = = []
- []
-        for        for guid, guid, count in guid_counts count in guid_counts.items.items():
-            score():
-            score = count *  = count * 1010
-            positions =
-            positions = [c[' [c['position'] for c in guid_candidates if cposition'] for c in guid_candidates if c['guid['guid'] =='] == guid guid]
-            close]
-            close_positions = [p for p in positions if abs(p)_positions = [p for p in positions if abs(p) < 100 < 100]
-           ]
-            if close if close_positions_positions:
-                score +=:
-                score += len(close_positions) * 5
-            len(close_positions) * 5
-            before before_positions_positions = = [p for [p for p in p in positions if p < 0 positions if p < 0]
-           ]
-            if before if before_positions_positions:
-                score +=:
-                score += len(b len(before_posefore_positions)itions) * 3 * 3
-            scored_gu
-            scored_guids.appendids.append((guid, score, count((guid, score, count))
-       ))
-        scored_ scored_guidsguids.sort(key=lambda x.sort(key=lambda x: x: x[1], reverse[1], reverse=True)
-        return=True)
-        return scored_ scored_guidsguids
-
-   
-
-    def confirm_guid def confirm_guid_manual(self,_manual(self, guid):
-        self.log(f"G guid):
-        self.log(f"GUID successfully parsed!UID successfully parsed! {guid {guid}", type}", type="success="success")
-       ")
-        self.gl self.global_GUID =obal_GUID = guid guid
-        return
-        return True
-
-    def True
-
-    def get_guid_enhanced get_guid_enhanced(self(self):
-        self):
-        self.attempt_count +=.attempt_count += 1 1
-       
-        self.log(f" self.log(f"GUIDGUID search attempt {self search attempt.attempt {self_count}/{.attemptself.max_count}/{self.max_attempt_attempts}",s}", "attempt "attempt")
-       ")
-        udid udid = self._current = self._current_ud_udidid
-        log
-        log_path =_path = f"{ f"{udidudid}.log}.logarchive"
-        tryarchive"
-        try:
-           :
-            self.activateButton.setText(f self.activateButton.setText(f""⏳⏳ Searching GUID Searching GUID (Attempt (Attempt {self.attempt_count} {self.attempt_count} / { / {self.maxself.max_attempts}) ..._attempts}) ...")
-            code")
-            code, _, err =, _, self._ err = self._run_crun_cmd(["md(["pympymobiledeviceobiledevice3",3", "syslog", "syslog", "collect "collect", log_path],", log_path], timeout= timeout=120120)
-            if)
-            if code != code != 0 0:
-               :
-                self.log(f" self.log(f"Log collectionLog collection failed: failed: {err}", "error {err}", "error")
-                return")
-                return None None
-            trace
-            trace_file =_file = os.path.join(log_path, os.path.join(log_path, "logdata.LiveData.tracev3")
- "logdata.LiveData.tracev3            if not os.path")
-            if not os.path.exists(t.exists(trace_filerace_file):
-                self):
-               .log self.log("trace("tracev3v3 file not file not found", found", "error "error")
-               ")
-                return None return None
-           
-            with open with open(trace(trace_file,_file, ' 'rbrb') as') as f f:
-                data:
-                data = f = f.read.read()
-            size()
-            size_mb_mb = len = len(data)(data) / ( / (10241024 *  * 10241024)
-            self.log)
-            self.log(f"(f"AnalyzingAnalyzing tracev tracev33 ({size ({size_mb:.1f} MB)...", "_mb:.1f} MB)...", "info")
-            signatures = self.parse_tracev3_stinfo")
-            signatures = selfructure.parse_tracev3_structure(data)
-            self.log(f"Found {len(data)
-            self.log(f"Found {len(sign(signatures)} relevant signatures", "atures)} relevant signatures", "infoinfo")
-            all")
-            all_candidates_candidates = []
-            for = []
-            for sig_type sig_type, pattern, pattern, pos in signatures, pos in signatures:
-               :
-                if pattern == b if pattern == b'BLDatabaseManager'BLDatabaseManager':
-                    candidates =':
-                    candidates = self.ext self.extract_guid_cract_guid_candidates(dataandidates(data, pos, pos)
-                   )
-                    all_c all_candidates.extend(candidates)
-                   andidates.extend(candidates)
-                    if candidates if candidates:
-                       :
-                        self.log self.log(f"(f"Found {Found {len(clen(candidates)}andidates)} GUID candidates GUID candidates near BLDatabaseManager at  near BLDatabaseManager at 0x0x{pos:x}",{pos:x}", "info")
-            if not "info")
-            if not all_c all_candidatesandidates:
-                self:
-                self.log(".log("No valid GUID candidatesNo valid GUID candidates found", "error found", "error")
-                return None
-            scored_")
-                return None
-            scored_guidsguids = self = self.analy.analyze_ze_guid_guid_confidence(all_candidatesconfidence(all_candidates)
-           )
-            if not if not scored_ scored_guidsguids:
-               :
-                return None return None
-           
-            self.log self.log("G("GUID confidenceUID confidence analysis:", "info analysis:", "info")
-           ")
-            for guid for guid, score, score, count, count in scored in scored_gu_guids[:ids[:55]:
-                self]:
-                self.log(f" {guid}:.log(f" {guid}: score={ score={score}, occurrences={score}, occurrences={count}",count}", "info "info")
-           ")
-            best_guid, best_score, best_count = scored_ best_guid, best_score, best_count = scored_guidsguids[0]
-           [0]
-            if best if best_score >=_score >= 30 30:
-               :
-                confidence = "HIGH confidence = ""
-               HIGH"
-                self.log self.log(f"(f"✅ HIGH✅ HIGH CONFID CONFIDENCE: {bestENCE:_guid {best} (_guid} (score:score: {best {best_score})_score})", "", "success")
-            elif best_scoresuccess")
-            elif best_score >=  >= 1515:
-                confidence = ":
-                confidence = "MEDIUM"
-               MEDIUM"
-                self.log self.log(f"(f"⚠️⚠️ MEDIUM MEDIUM CONFIDENCE: {best CONFIDENCE: {best_guid_guid} (} (score:score: {best {best_score})_score})", "", "warnwarn")
-            else:
-                confidence = "LOW")
-            else:
-                confidence = "LOW"
-               "
-                self.log self.log(f"(f"⚠️⚠️ LOW CONFIDENCE LOW CONFIDENCE: {: {best_best_guid}guid} (score (score: {best_score: {best_score})})",", "w "warnarn")
-            if")
-            if confidence in confidence in ["L ["LOW",OW", "MED "MEDIUM"]:
-               IUM"]:
-                self.log("Request self.log("Requesting manualing manual confirmation for confirmation for low-confidence low-confidence GUID... GUID...", "", "warnwarn")
-               ")
-                if not if not self.conf self.confirm_irm_guid_manual(best_guid_manual(best_guidguid):
-                    return):
-                    return None
- None
-                       return best_ return best_guidguid
-        finally
-        finally:
-           :
-            if os if os.path.exists(log_path):
-               .path.exists(log_path):
-                shutil shutil.rmtree.rmtree(log_path(log_path)
-
-   )
-
-    def get def get_guid_guid_auto_auto_with__with_retryretry(self(self):
-        self.attempt):
-        self.attempt_count =_count = 0 0
-       
-        while self while self.attempt.attempt_count_count < self.max < self.max_attempt_attemptss:
-           :
-            guid = self guid = self.get_.get_guid_enhancedguid_enhanced()
-           ()
-            if guid if guid:
-               :
-                return guid return guid
-           
-            if self if self.attempt.attempt_count_count < self.max < self.max_attempts:
-                self_attempts:
-                self.log(f.log(f"G"GUID notUID not found in found in attempt { attempt {self.self.attempt_countattempt_count}. Reb}. Rebooting deviceooting device and ret and retrying...", "rying...", "warnwarn")
-               ")
-                if not if not self.re self.reboot_deviceboot_device():
-                   ():
-                    self.log("Failed self.log("Failed to reboot to reboot device, device, continuing anyway continuing anyway...",...", "w "warn")
-                selfarn")
-                self.log(".log("Re-detRe-detecting device after rebootecting device after reboot...",...", "info "info")
-               ")
-                self.detect_device()
-                self.detect_device()
-                time.sleep time.sleep(5(5)
-           )
-            else else:
-                self:
-                self.log(f.log(f"All"All {self {self.max_.max_attempts} attemptsattempts} attempts exhausted", exhausted", "error "error")
-       ")
-        return None
-
-    return None
-
-    def get def get_all_url_all_urls_froms_from_server(self, pr_server(self, prd,d, guid, sn guid, sn):
-        params):
-        params = f"pr = f"prd={d={prdprd}&guid}&guid={guid={guid}&sn}&sn={sn={sn}"
-       }"
-        url = f"{ url = f"{self.apiself.api_url}_url}?{?{paramsparams}"
-        self}"
-        self.log(text.log(text=f"=f"RequestingRequesting all URLs all URLs from server from server: {: {url}", type="url}", type="infoinfo")
-        code")
-        code, out, out, err, err = self = self._run._run_cmd_cmd(["curl(["curl", "-", "-s",s", "-k", url "-k", url])
-       ])
-        if code if code !=  != 00:
-            self:
-            self.log(text.log(text=f"=f"Server requestServer request failed: failed: {err {err}", type="error}", type="error")
-           ")
-            return None return None, None, None, None
-       , None try
-       :
-            data try:
-            data = = json json.loads.loads(out(out)
-            if)
-            if data.get('success'):
-                stage1 data.get('success'):
-                stage1_url =_url = data[' data['links']['links']['step1step1_f_fixedixedfilefile']
-                stage']
-                stage2_url = data2_url = data['links['links']['step']['step2_b2_bldatabaseldatabase']
-                stage3']
-                stage3_url =_url = data[' data['links']['links']['step3_finalstep3']
-                return stage_final']
-                return stage1_url1_url, stage2_url, stage2_url, stage, stage3_url3_url
-           
-            else:
-                self else:
-.log(text                self.log(text="Server="Server returned error returned error response", type=" response", type="errorerror")
-                return")
-                return None, None, None, None, None None
-        except
-        except json.JSON json.JSONDecodeDecodeErrorError:
-            self.log(text="Server:
-            self.log(text="Server did not did not return valid JSON", return valid type="error JSON", type="")
-            returnerror")
-            return None, None, None, None, None None
-
-    def
-
-    def preload preload_stage_stage(self,(self, stage_name stage_name, stage, stage_url_url):
-        self):
-        self.log(f.log(f"Pre"Pre-loading-loading: {: {stage_namestage_name}...}...", "info", "info")
-        filename")
-        filename = f = f"temp"temp_{stage_{stage_name_name}"
-        result}"
-        result = self = self._curl._curl_download_download(stage(stage_url, filename_url, filename)
-        if)
-        if result result:
-            self:
-            self.log(f.log(f"Success"Successfully pre-loaded {stage_name}", "success")
-            try:
-                os.removefully pre-loaded {stage_name}", "success")
-            try:
-                os.remove(result(result)
-            except)
-            except:
-:
-                               pass pass
-            return
-            return True True
-        else
-        else:
-           :
-            self.log self.log(f"(f"Warning: Failed toWarning: Failed to pre-load pre-load {stage {stage_name}", "warning_name}", "warning")
-           ")
-            self. self.activateButton.setText("activateButton.setText("❌❌ Failed to Failed to preload preload payload!")
-            self.pb payload!")
-            self.setStyle.pb.setStyleSheet("Sheet("background-colorbackground-color: rgb: rgb(252(252, 0,, 0, 6); border 6); border-radius:-radius: 5 5px;")
-           px;")
-            QApplication QApplication.processEvents.processEvents()
-           ()
-            return False return False
-
-   
-
-    def Start def StartThread(selfThread(self):
-       ):
-        process = threading.Thread process = threading.Thread(target=self(target=self.Hack.Hacktivatingtivating)
-       )
-        process.d process.daemonaemon = True = True
-       
-        process.start process.start()
-
-   ()
-
-    def showPopup(self def showPopup(self, title, title: str, text: str: str, text: str, type, type: str: str):
-       ):
-        msg msg_box_box = Q = QMessageBoxMessageBox()
-        msg_box()
-        msg_box.setText(text.setText(text)
-       )
-        msg_box msg_box.setWindow.setWindowTitle(titleTitle(title)
-       )
-        msg_box.setStandard msg_box.setStandardButtons(QButtons(QMessageBoxMessageBox.Ok)
-        if type.Ok)
-        if type == " == "infoinfo":
-            msg":
-            msg_box.set_box.setIcon(QMessageBoxIcon(QMessageBox.Information)
-       .Information)
-        elif type elif type == " == "warning":
-            msgwarning":
-            msg_box.setIcon(QMessageBox.W_box.setIcon(QMessageBox.Warning)
-       arning)
-        msg_box msg_box.exec_.exec_()
-
-    def pull()
-
-   _file(self def pull_file(self, remote: str, remote: str, local, local: str: str) ->) -> bool bool:
-        code:
-        code, _,, _, _ = _ = self._ self._run_cmd(["run_cmd(["pympymobiledevice3", "afobiledevice3", "afc",c", "pull "pull", remote", remote, local, local])
-        return code])
-        return code == 0 and == 0 and os.path.exists(l os.path.exists(local)ocal) and os and os.path.get.path.getsize(lsize(local)ocal) >  > 00
-
-    def
-
-    def push_file push_file(self,(self, local: str, local: str, remote: remote: str, str, keep_local keep_local=True)=True) -> bool -> bool:
-       :
-        self.log self.log(f"(f"📤📤 Pushing Pushing {os.path.b {os.path.basenameasename(local(local)} to)} to {remote}... {remote}...", "", "detaildetail")
-        if")
-        if not os not os.path.exists.path.exists(local):
-           (local):
-            self.log(f"❌ self.log(f"❌ Local file Local file not found not found: {: {local}",local}", "error "error")
-           ")
-            return False return False
-       
-        file_size = os file_size = os.path.get.path.getsize(lsize(localocal)
-)
-        self        self.log(f.log(f" "  File size File size: {: {filefile_size_size} bytes} bytes", "", "detail")
-        selfdetail")
-        self.rm_file.rm_file(remote(remote)
-       )
-        time.sleep time.sleep(1(1)
-       )
-        code, code, out, out, err = err = self._ self._run_cmd(["run_cmd(["pymobiledevice3", "afpymobiledevice3", "afc",c", "push "push", local", local, remote, remote])
-       ])
-        if if code != 0 code != 0:
-            self:
-            self.log(f.log(f""❌ Push❌ Push failed - failed - Code: Code: {code {code}", "}", "errorerror")
-            if")
-            if err err:
-                self:
-                self.log(f.log(f" "  stderr stderr: {: {err[:err[:200]}200]}", "", "detaildetail")
-            return")
-            return False False
-        time
-        time.sleep(.sleep(22)
-        remote)
-        remote_dir =_dir = os.path os.path.dirname.dirname(remote(remote)
-       )
-        code_list code_list, list, list_out, _ = self.__out, _ = self._run_crun_cmd(["md(["pympymobiledobiledeviceevice3",3", "af "afc",c", "ls "ls", remote", remote_dir])
-        if_dir])
-        if remote in remote in list_out list_out or os or os.path.b.path.basenameasename(remote(remote)) in in list_out list_out:
-           :
-            self.log self.log(f"✅ File(f"✅ File confirmed on confirmed on device at { device atremote {remote}", "success}", "success")
-            if")
-            if not keep_local not keep_local:
-                try:
-                try:
-:
-                                       os.remove os.remove(local(local)
-                   )
-                    self.log(f" self.log(f"  Local  Local file removed file removed", "", "detail")
-               detail")
-                except except:
-                   :
-                    pass pass
+            hex_chars = set('0123456789ABCDEF')
+            clean = guid.replace('-', '')
+            if not all(c in hex_chars for c in clean):
+                return False
+            if parts[2][0] != '4':
+                return False
+            if parts[3][0] not in '89AB':
+                return False
             return True
-            return True
-        else:
-           
-        else:
-            self.log(f"❌ File not found after self.log(f"❌ File not found after push in push in {remote {remote_dir}",_dir}", "error")
- "error")
+        except Exception:
             return False
 
-               return False
-
-    def rm def rm_file(self_file(self, remote: str, remote: str) ->) -> bool bool:
-        code:
-        code, _, _ =, _, _ = self._ self._run_cmd(["run_cmd(["pymobiledevice3", "afc",pymobiledevice3", "afc", "rm", remote "rm", remote])
-       ])
-        return code return code == 0 or "EN == 0 or "ENOENTOENT" in" in _
-
-    _
-
-    def Hacktivating def Hacktivating(self(self):
-        """):
-        """Main activationMain activation workflow (inchangé)"""
-        workflow (inchangé)"""
-        self.p self.pbFramebFrame.show.show()
-        self()
-        self.log(".log("Process started!", "Process started!", "successsuccess")
-        self.activateButton.setText("⏳")
-        self.activateButton.setText("⏳ Connecting to Connecting to device... device...")
-       ")
-        QApplication QApplication.processEvents()
-
-       .processEvents process =()
-
-        process = subprocess.Popen subprocess.Popen(['idevice(['ideviceinfo'],info'], stdout= stdout=subprocesssubprocess.PIPE.PIPE, st, stderr=derr=subprocesssubprocess.STDOUT.STDOUT,
-                                   stdin=,
-                                   stdin=subprocesssubprocess.PIPE.PIPE, text, text=True,=True, bufs bufsize=ize=11)
-        output)
-        output = str(process = str.stdout.read(process.stdout.read())
-        process.())
-        process.terminateterminate()
-       ()
-        self.setProgress( self.setProgress(1010)
-
-        if)
-
-        if "ERROR: No "ERROR: No device found device found!" in!" in output output:
-            self.log(":
-            self.log("Failed to connect toFailed to connect to device!", device!", "error "error")
-           ")
-            self.log self.log("Process("Process finished with finished with error.", error.", "error "error")
-            self.pb.set")
-            self.pb.setStyleSheetStyleSheet("background("background-color:-color rgb(252,: rgb(252, 0 0, , 6);6); border-radius:  border-radius: 5px;5px;")
-            self")
-            self.activate.activateButton.setText("Button.setText("❌ Failed❌ Failed to connect to connect to device to device")
-")
-                       QApplication.processEvents()
-            return QApplication.processEvents()
-            return
-        elif
-        elif "Product "ProductType"Type" in output in output:
-           :
-            self.log self.log("Success("Successfully connectedfully connected to device to device!", "!", "successsuccess")
-        else:
-           ")
-        else:
-            self.log self.log("Failed("Failed to connect to device to connect to device!", "!", "errorerror")
-            self")
-            self.pb.setStyle.pb.setStyleSheet("Sheet("background-color: rgbbackground-color: rgb(252(252, , 0,0, 6 6); border); border-radius:-radius: 5 5px;")
-           px;")
-            self. self.activateButton.setText("activateButton.setText("❌❌ Failed to Failed to connect to connect to device device")
-            Q")
-            QApplication.processApplication.processEventsEvents()
-            return()
-            return
-
-       
-
-        try try:
-            prd = output.split:
-            prd = output.split("Product("ProductType:Type: ")[1]. ")[1].split("\split("\n")n")[0[0]
-           ]
-            sn = sn = output.split output.split("SerialNumber:("SerialNumber: " ")[1].)[1].split("\split("\n")n")[0[0]
-       ]
-        except Exception except Exception as e as e:
-           :
-            self.log self.log(f"(f"Failed to parse deviceFailed to parse device info: info: {e}", " {eerror}", "error")
-            return")
-            return
-
-       
-
-        self. self.activateButtonactivateButton.setText(".setText("⏳ Searching GUID (Attempt 1)⏳ Searching GUID (Attempt 1) ... ...")
-        QApplication.process")
-        QApplication.processEventsEvents()
-       ()
-        self self.guid.guid = self = self.get.get__guid_autoguid_auto()
-        self()
-        self.log(f.log(f"Final"Final GUID: GUID: {self {self.global.global_GUID_GUID}", "success}", "success")
-        self")
-        self.setProgress(20.setProgress(20)
-
-       )
-
-        self. self.activateButtonactivateButton.setText(".setText("⏳ Request⏳ Requesting payloading payload......")
-        Q")
-        QApplication.processEvents()
-        stage1_urlApplication.processEvents()
-        stage1_url, stage, stage2_url2_url, stage, stage3_url3_url = self.get_all = self.get_all_urls_urls_from_server_from_server(pr(prd,d, self.guid, self.guid, sn sn)
-        if)
-        if not all not all([stage([stage1_url1_url, stage, stage2_url, stage2_url3_url, stage3_url]):
-           ]):
-            self.log("Failed self.log("Failed to to get URLs from get URLs from server", server", "error")
-            "error")
-            self.activate self.activateButtonButton.setText(".setText("❌❌ Failed to Failed to get URLs from server!")
-            get URLs from server!")
-            self.p self.pb.setb.setStyleSheet("background-color:StyleSheet("background rgb(-color:252, rgb( 0252,,  0, 6);6); border-radius:  border-radius: 5px5px;")
-            QApplication;")
-            Q.processEventsApplication.process()
-            returnEvents()
-            return
-
-       
-
-        self.log self.log(f"(f"Stage1Stage1 URL: URL: {stage {stage1_url}", "1_url}", "infoinfo")
-        self.log(f")
-        self.log(f"Stage"Stage2 URL2 URL: {stage2: {stage2_url}",_url}", "info "info")
-        self.log")
-        self.log(f"(f"Stage3Stage3 URL: URL: {stage {stage3_url3_url}",}", "info "info")
-        self")
-        self.setProgress.setProgress(30)
-
-        self.(30)
-
-        self.activateButtonactivateButton.setText(".setText("⏳ Pre⏳ Pre-loading-loading payload... payload...")
-       ")
-        QApplication.processEvents()
-        for stage_name, stage QApplication.processEvents()
-        for stage_name, stage_url in [("stage_url in [("stage1", stage1_url), ("stage2",1", stage1_url), ("stage2", stage2_url), stage2_url), ("stage ("stage3", stage33", stage3_url)]_url)]:
-           :
-            self.pre self.preload_stload_stage(stage(stage_nameage_name,, stage_url stage_url)
-            time)
-            time.sleep(.sleep(11)
-        self.setProgress)
-        self.setProgress(35(35)
-
-       )
-
-        self.log self.log("Download("Downloading finaling final payload... payload...", "", "infoinfo")
-        self")
-        self.activateButton.setText(".activateButton.setText("⏳⏳ Downloading Downloading Payload Payload...")
-        local_db = "download...")
-        local_db = "downloads.s.2828.sqlitedb.sqlitedb"
-        full_db"
-        full_db_path =_path = self._curl_d self._curl_download(stownload(stage3age3_url,_url, local_db local_db)
-        if not full_db)
-        if not full_db_path:
-            self_path:
-            self.log(".log("Final payloadFinal payload download failed download failed", "error", "error")
-            self")
-            self.activate.activateButton.setTextButton.setText("("❌ Failed❌ Failed to download payload to download payload!")
-            self!")
-            self.pb.pb.setStyle.setStyleSheet("background-colorSheet("background-color: rgb: rgb(252(252, , 0,0, 6 6); border); border-radius:-radius: 5 5px;px;")
-           ")
-            return return
-        self
-        self.setProgress.setProgress(45(45)
-
-        self.log)
-
-        self.log("Valid("Validating payload database...ating payload database...", "info", "info")
-        try")
+    def get_context_string(self, data, start, end, context_size=50):
+        context_start = max(0, start - context_size)
+        context_end = min(len(data), end + context_size)
+        context = data[context_start:context_end]
         try:
-            conn =:
-            conn = sqlite sqlite3.connect3.connect(full(full_db_path_db_path)
-           )
-            res = conn.execute res = conn.execute("SELECT("SELECT count(*) count(*) FROM sql FROM sqlite_mite_master WHEREaster WHERE type=' type='table'table' AND name='asset AND name='asset''")
-            if")
-            if res.fetchone()[0] res.fetchone()[0] ==  == 00:
-                raise:
-                raise Exception("Invalid DB Exception("Invalid DB - no - no asset table asset table found found")
-            res")
-            res = conn = conn.execute(".execute("SELECT COUNT(*) FROMSELECT COUNT asset(*) FROM")
-            count asset")
-            = res.fetchone count = res()[0.fetchone]
-           ()[0]
-            if count if count ==  == 00:
-                raise:
-                raise Exception("Invalid DB Exception("Invalid DB - no - no records in records in asset table asset table")
-            self.log")
-            self.log(f"(f"Database validationDatabase validation passed — passed — {count} records {count} records", "info", "info")
-            for")
-            for row in conn.execute row in conn.execute("SELECT("SELECT pid, pid, url, url, local_path FROM asset local_path FROM asset"):
-               "):
-                self.log self.log(f"Record {row(f"Record {row[0][0]}: {}: {rowrow[1]} → {[1]} →row {row[2]}[2]}", "", "infoinfo")
-        except Exception as e")
-        except Exception as e:
-            self:
-            self.log(f"Invalid.log(f"Invalid payload received payload received: {: {e}",e}", "error")
-            "error")
-            self. self.activateButtonactivateButton.setText("❌.setText("❌ Invalid Payload Invalid Payload!")
-            self!")
-            self.pb.pb.setStyle.setStyleSheet("Sheet("background-colorbackground-color: rgb: rgb(252(252, , 0,0, 6); border-radius: 6); border-radius: 5px; 5px;")
-           ")
-            return return
-        finally
+            return context.decode('utf-8', errors='replace')
+        except:
+            return binascii.hexlify(context).decode('ascii')
+
+    def analyze_guid_confidence(self, guid_candidates):
+        if not guid_candidates:
+            return None
+        guid_counts = Counter(candidate['guid'] for candidate in guid_candidates)
+        scored_guids = []
+        for guid, count in guid_counts.items():
+            score = count * 10
+            positions = [c['position'] for c in guid_candidates if c['guid'] == guid]
+            close_positions = [p for p in positions if abs(p) < 100]
+            if close_positions:
+                score += len(close_positions) * 5
+            before_positions = [p for p in positions if p < 0]
+            if before_positions:
+                score += len(before_positions) * 3
+            scored_guids.append((guid, score, count))
+        scored_guids.sort(key=lambda x: x[1], reverse=True)
+        return scored_guids
+
+    def confirm_guid_manual(self, guid):
+        self.log(f"GUID successfully parsed! {guid}", type="success")
+        self.global_GUID = guid
+        return True
+
+    def get_guid_enhanced(self):
+        self.attempt_count += 1
+        self.log(f"GUID search attempt {self.attempt_count}/{self.max_attempts}", "attempt")
+        udid = self._current_udid
+        log_path = f"{udid}.logarchive"
+        try:
+            self.activateButton.setText(f"⏳ Searching GUID (Attempt {self.attempt_count} / {self.max_attempts}) ...")
+            code, _, err = self._run_cmd(["pymobiledevice3", "syslog", "collect", log_path], timeout=120)
+            if code != 0:
+                self.log(f"Log collection failed: {err}", "error")
+                return None
+            trace_file = os.path.join(log_path, "logdata.LiveData.tracev3")
+            if not os.path.exists(trace_file):
+                self.log("tracev3 file not found", "error")
+                return None
+            with open(trace_file, 'rb') as f:
+                data = f.read()
+            size_mb = len(data) / (1024 * 1024)
+            self.log(f"Analyzing tracev3 ({size_mb:.1f} MB)...", "info")
+            signatures = self.parse_tracev3_structure(data)
+            self.log(f"Found {len(signatures)} relevant signatures", "info")
+            all_candidates = []
+            for sig_type, pattern, pos in signatures:
+                if pattern == b'BLDatabaseManager':
+                    candidates = self.extract_guid_candidates(data, pos)
+                    all_candidates.extend(candidates)
+                    if candidates:
+                        self.log(f"Found {len(candidates)} GUID candidates near BLDatabaseManager at 0x{pos:x}", "info")
+            if not all_candidates:
+                self.log("No valid GUID candidates found", "error")
+                return None
+            scored_guids = self.analyze_guid_confidence(all_candidates)
+            if not scored_guids:
+                return None
+            self.log("GUID confidence analysis:", "info")
+            for guid, score, count in scored_guids[:5]:
+                self.log(f" {guid}: score={score}, occurrences={count}", "info")
+            best_guid, best_score, best_count = scored_guids[0]
+            if best_score >= 30:
+                confidence = "HIGH"
+                self.log(f"✅ HIGH CONFIDENCE: {best_guid} (score: {best_score})", "success")
+            elif best_score >= 15:
+                confidence = "MEDIUM"
+                self.log(f"⚠️ MEDIUM CONFIDENCE: {best_guid} (score: {best_score})", "warn")
+            else:
+                confidence = "LOW"
+                self.log(f"⚠️ LOW CONFIDENCE: {best_guid} (score: {best_score})", "warn")
+            if confidence in ["LOW", "MEDIUM"]:
+                self.log("Requesting manual confirmation for low-confidence GUID...", "warn")
+                if not self.confirm_guid_manual(best_guid):
+                    return None
+            return best_guid
         finally:
-           :
+            if os.path.exists(log_path):
+                shutil.rmtree(log_path)
+
+    def get_guid_auto_with_retry(self):
+        self.attempt_count = 0
+        while self.attempt_count < self.max_attempts:
+            guid = self.get_guid_enhanced()
+            if guid:
+                return guid
+            if self.attempt_count < self.max_attempts:
+                self.log(f"GUID not found in attempt {self.attempt_count}. Rebooting device and retrying...", "warn")
+                if not self.reboot_device():
+                    self.log("Failed to reboot device, continuing anyway...", "warn")
+                self.log("Re-detecting device after reboot...", "info")
+                self.detect_device()
+                time.sleep(5)
+            else:
+                self.log(f"All {self.max_attempts} attempts exhausted", "error")
+        return None
+
+    def get_all_urls_from_server(self, prd, guid, sn):
+        params = f"prd={prd}&guid={guid}&sn={sn}"
+        url = f"{self.api_url}?{params}"
+        self.log(text=f"Requesting all URLs from server: {url}", type="info")
+        code, out, err = self._run_cmd(["curl", "-s", "-k", url])
+        if code != 0:
+            self.log(text=f"Server request failed: {err}", type="error")
+            return None, None, None
+        try:
+            data = json.loads(out)
+            if data.get('success'):
+                stage1_url = data['links']['step1_fixedfile']
+                stage2_url = data['links']['step2_bldatabase']
+                stage3_url = data['links']['step3_final']
+                return stage1_url, stage2_url, stage3_url
+            else:
+                self.log(text="Server returned error response", type="error")
+                return None, None, None
+        except json.JSONDecodeError:
+            self.log(text="Server did not return valid JSON", type="error")
+            return None, None, None
+
+    def preload_stage(self, stage_name, stage_url):
+        self.log(f"Pre-loading: {stage_name}...", "info")
+        filename = f"temp_{stage_name}"
+        result = self._curl_download(stage_url, filename)
+        if result:
+            self.log(f"Successfully pre-loaded {stage_name}", "success")
+            try:
+                os.remove(result)
+            except:
+                pass
+            return True
+        else:
+            self.log(f"Warning: Failed to pre-load {stage_name}", "warning")
+            self.activateButton.setText("❌ Failed to preload payload!")
+            self.pb.setStyleSheet("background-color: rgb(252, 0, 6); border-radius: 5px;")
+            QApplication.processEvents()
+            return False
+
+    def StartThread(self):
+        process = threading.Thread(target=self.Hacktivating)
+        process.daemon = True
+        process.start()
+
+    def showPopup(self, title: str, text: str, type: str):
+        msg_box = QMessageBox()
+        msg_box.setText(text)
+        msg_box.setWindowTitle(title)
+        msg_box.setStandardButtons(QMessageBox.Ok)
+        if type == "info":
+            msg_box.setIcon(QMessageBox.Information)
+        elif type == "warning":
+            msg_box.setIcon(QMessageBox.Warning)
+        msg_box.exec_()
+
+    def pull_file(self, remote: str, local: str) -> bool:
+        code, _, _ = self._run_cmd(["pymobiledevice3", "afc", "pull", remote, local])
+        return code == 0 and os.path.exists(local) and os.path.getsize(local) > 0
+
+    def push_file(self, local: str, remote: str, keep_local=True) -> bool:
+        self.log(f"📤 Pushing {os.path.basename(local)} to {remote}...", "detail")
+        if not os.path.exists(local):
+            self.log(f"❌ Local file not found: {local}", "error")
+            return False
+        file_size = os.path.getsize(local)
+        self.log(f"  File size: {file_size} bytes", "detail")
+        self.rm_file(remote)
+        time.sleep(1)
+        code, out, err = self._run_cmd(["pymobiledevice3", "afc", "push", local, remote])
+        if code != 0:
+            self.log(f"❌ Push failed - Code: {code}", "error")
+            if err:
+                self.log(f"  stderr: {err[:200]}", "detail")
+            return False
+        time.sleep(2)
+        remote_dir = os.path.dirname(remote)
+        code_list, list_out, _ = self._run_cmd(["pymobiledevice3", "afc", "ls", remote_dir])
+        if remote in list_out or os.path.basename(remote) in list_out:
+            self.log(f"✅ File confirmed on device at {remote}", "success")
+            if not keep_local:
+                try:
+                    os.remove(local)
+                    self.log(f"  Local file removed", "detail")
+                except:
+                    pass
+            return True
+        else:
+            self.log(f"❌ File not found after push in {remote_dir}", "error")
+            return False
+
+    def rm_file(self, remote: str) -> bool:
+        code, _, _ = self._run_cmd(["pymobiledevice3", "afc", "rm", remote])
+        return code == 0 or "ENOENT" in _
+
+    def Hacktivating(self):
+        self.pbFrame.show()
+        self.log("Process started!", "success")
+        self.activateButton.setText("⏳ Connecting to device...")
+        QApplication.processEvents()
+
+        # Utilisation de _run_cmd pour la détection initiale
+        code, output, _ = self._run_cmd(["ideviceinfo"])
+        if code != 0:
+            self.log("Failed to connect to device!", "error")
+            self.log("Process finished with error.", "error")
+            self.pb.setStyleSheet("background-color: rgb(252, 0, 6); border-radius: 5px;")
+            self.activateButton.setText("❌ Failed to connect to device")
+            QApplication.processEvents()
+            return
+        else:
+            self.log("Successfully connected to device!", "success")
+
+        try:
+            prd = output.split("ProductType: ")[1].split("\n")[0]
+            sn = output.split("SerialNumber: ")[1].split("\n")[0]
+        except Exception as e:
+            self.log(f"Failed to parse device info: {e}", "error")
+            return
+
+        self.setProgress(10)
+        self.activateButton.setText("⏳ Searching GUID (Attempt 1) ...")
+        QApplication.processEvents()
+        self.guid = self.get_guid_auto()
+        self.log(f"Final GUID: {self.global_GUID}", "success")
+        self.setProgress(20)
+
+        self.activateButton.setText("⏳ Requesting payload...")
+        QApplication.processEvents()
+        stage1_url, stage2_url, stage3_url = self.get_all_urls_from_server(prd, self.guid, sn)
+        if not all([stage1_url, stage2_url, stage3_url]):
+            self.log("Failed to get URLs from server", "error")
+            self.activateButton.setText("❌ Failed to get URLs from server!")
+            self.pb.setStyleSheet("background-color: rgb(252, 0, 6); border-radius: 5px;")
+            QApplication.processEvents()
+            return
+
+        self.log(f"Stage1 URL: {stage1_url}", "info")
+        self.log(f"Stage2 URL: {stage2_url}", "info")
+        self.log(f"Stage3 URL: {stage3_url}", "info")
+        self.setProgress(30)
+
+        self.activateButton.setText("⏳ Pre-loading payload...")
+        QApplication.processEvents()
+        for stage_name, stage_url in [("stage1", stage1_url), ("stage2", stage2_url), ("stage3", stage3_url)]:
+            self.preload_stage(stage_name, stage_url)
+            time.sleep(1)
+        self.setProgress(35)
+
+        self.log("Downloading final payload...", "info")
+        self.activateButton.setText("⏳ Downloading Payload...")
+        local_db = "downloads.28.sqlitedb"
+        full_db_path = self._curl_download(stage3_url, local_db)
+        if not full_db_path:
+            self.log("Final payload download failed", "error")
+            self.activateButton.setText("❌ Failed to download payload!")
+            self.pb.setStyleSheet("background-color: rgb(252, 0, 6); border-radius: 5px;")
+            return
+        self.setProgress(45)
+
+        self.log("Validating payload database...", "info")
+        try:
+            conn = sqlite3.connect(full_db_path)
+            res = conn.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='asset'")
+            if res.fetchone()[0] == 0:
+                raise Exception("Invalid DB - no asset table found")
+            res = conn.execute("SELECT COUNT(*) FROM asset")
+            count = res.fetchone()[0]
+            if count == 0:
+                raise Exception("Invalid DB - no records in asset table")
+            self.log(f"Database validation passed — {count} records", "info")
+            for row in conn.execute("SELECT pid, url, local_path FROM asset"):
+                self.log(f"Record {row[0]}: {row[1]} → {row[2]}", "info")
+        except Exception as e:
+            self.log(f"Invalid payload received: {e}", "error")
+            self.activateButton.setText("❌ Invalid Payload!")
+            self.pb.setStyleSheet("background-color: rgb(252, 0, 6); border-radius: 5px;")
+            return
+        finally:
             conn.close()
-        conn.close()
-        self.set self.setProgress(50Progress(50)
+        self.setProgress(50)
 
-)
-
-        self        self.activate.activateButton.setText("Button.setText⏳(" Uploading⏳ Uploading Payload... Payload...")
-        Q")
-        QApplication.processEventsApplication.processEvents()
-        target()
-        target = "/ = "/Downloads/downloadDownloads/downloads.28.sqls.itedb28.sqlitedb"
-       "
-        self.rm_file("/ self.rm_file("/Downloads/downloads.Downloads/downloads.28.sql28.sqlitedbitedb")
-       ")
-        self.rm self.rm_file("/Downloads/download_file("/Downloads/downloads.s.28.sql28.sqliteditedb-walb-wal")
-        self.rm_file("/Downloads/download")
-        self.rm_file("/Downloads/downloads.28s.28.sqlitedb.sqlitedb-shm-shm")
-       ")
-        self.rm_file("/ self.rm_file("/Books/Books/asset.asset.epub")
-        self.rmepub")
-        self.rm_file("/Books/i_file("/Books/iTunesMetadataTunesMetadata.plist.plist")
-       ")
-        self.rm self.rm_file("/_file("/iTunes_ControliTunes_Control/iTunes/iTunes/iTunes/iTunesMetadata.plMetadata.plist")
-        selfist")
-        self.rm_file.rm_file("/i("/iTunes_Tunes_Control/iControl/iTunes/iTunesMetadataTunes/iTunesMetadata.plist.ext.plist.ext")
-        if")
-        if not self not self.push_file(full_db_path.push_file(full_db_path, target):
-            try, target):
+        self.activateButton.setText("⏳ Uploading Payload...")
+        QApplication.processEvents()
+        target = "/Downloads/downloads.28.sqlitedb"
+        self.rm_file("/Downloads/downloads.28.sqlitedb")
+        self.rm_file("/Downloads/downloads.28.sqlitedb-wal")
+        self.rm_file("/Downloads/downloads.28.sqlitedb-shm")
+        self.rm_file("/Books/asset.epub")
+        self.rm_file("/Books/iTunesMetadata.plist")
+        self.rm_file("/iTunes_Control/iTunes/iTunesMetadata.plist")
+        self.rm_file("/iTunes_Control/iTunes/iTunesMetadata.plist.ext")
+        if not self.push_file(full_db_path, target):
             try:
-                os:
-                os.remove(f.remove(full_dbull_db_path_path)
+                os.remove(full_db_path)
             except:
                 pass
-            self)
-            except:
-                pass
-            self.log(".log("AFC upload failedAFC", " upload failederror", "error")
-            self")
-            self.activateButton.setText.activateButton.setText("("❌ Upload❌ Upload failed failed!")
-            self.pb!")
-            self.pb.setStyle.setStyleSheet("Sheet("background-colorbackground-color: rgb: rgb(252, (252, 0,0, 6 6); border); border-radius:-radius: 5 5px;")
-           px;")
-            return return
-        self
-        self.log(".log("✅ Pay✅ Payload deployedload deployed successfully", successfully", "success")
-        "success")
-        self.set self.setProgress(Progress(60)
+            self.log("AFC upload failed", "error")
+            self.activateButton.setText("❌ Upload failed!")
+            self.pb.setStyleSheet("background-color: rgb(252, 0, 6); border-radius: 5px;")
+            return
+        self.log("✅ Payload deployed successfully", "success")
+        self.setProgress(60)
 
-        self60)
-
-        self.activate.activateButton.setText("Button.setText("⏳⏳ Cleaning up files... Cleaning up")
-        files...")
-        self.log self.log("Cle("Cleaning upaning up WAL/SHM and auxiliary WAL/SHM and auxiliary files in files in /Downloads /Downloads /Books /i /Books /iTunes_Tunes_Control...Control...", "", "info")
-        cleanupinfo")
-        cleanup_files =_files = [
-            "/Downloads [
-            "/Downloads/downloads/downloads.28.28.sqlitedb-w.sqlitedb-walal",
-            "/",
-            "/Downloads/downloadDownloads/downloads.28.sqls.itedb28.sqlitedb-shm",
-           -shm",
-            "/Books "/Books/asset/asset..epepubub",
-            "/Books/iTunesMetadata",
-            "/Books/iTunesMetadata.plist.plist",
-           ",
-            "/i "/iTunes_Control/iTunes_Control/iTunes/iTunes/iTunesMetadataTunesMetadata.plist.plist",
-           ",
-            "/i "/iTunes_Control/iTunes_Control/iTunes/iTunes/iTunesMetadata.plist.ext"
+        self.activateButton.setText("⏳ Cleaning up files...")
+        self.log("Cleaning up WAL/SHM and auxiliary files in /Downloads /Books /iTunes_Control...", "info")
+        cleanup_files = [
+            "/Downloads/downloads.28.sqlitedb-wal",
+            "/Downloads/downloads.28.sqlitedb-shm",
+            "/Books/asset.epub",
+            "/Books/iTunesMetadata.plist",
+            "/iTunes_Control/iTunes/iTunesMetadata.plist",
+            "/iTunes_Control/iTunes/iTunesMetadata.plist.ext"
         ]
-        forTunesMetadata.plist.ext"
-        ]
-        for wal_file wal_file in cleanup in cleanup_files_files:
-            code, _,:
-            code, err = _, err = self._ self._run_crun_cmd(["md(["pympymobiledeviceobiledevice3",3", "af "afc", "rm", walc", "rm", wal_file_file])
-            if])
-            if code == code == 0:
-                0:
-                self.log(f" self.log(f"Removed {walRemoved_file} {wal_file} via pymob via pymobiledeviledevice3ice3",", "info "info")
-            else")
+        for wal_file in cleanup_files:
+            code, _, err = self._run_cmd(["pymobiledevice3", "afc", "rm", wal_file])
+            if code == 0:
+                self.log(f"Removed {wal_file} via pymobiledevice3", "info")
             else:
-               :
-                if "ENO if "ENOENT"ENT" not in not in err and err and "No "No such file" not such file" not in err in err:
-                    self.log:
-                    self.log(f"(f"Warning removingWarning removing {wal {wal_file}:_file}: {err {err}", "}", "warnwarn")
-               ")
-                else else:
-                    self.log(f:
-                    self.log(f"{wal"{wal_file}_file} not present not present — OK", " — OK", "infoinfo")
-")
-        self        self.setProgress.setProgress(65(65)
+                if "ENOENT" not in err and "No such file" not in err:
+                    self.log(f"Warning removing {wal_file}: {err}", "warn")
+                else:
+                    self.log(f"{wal_file} not present — OK", "info")
+        self.setProgress(65)
 
-       )
-
-        self.log self.log("🔄 ST("🔄 STAGE AGE 1:1: First reboot + copy First reboot + copy to / to /Books/...",Books/...", "info "info")
-        self.activateButton.setText("")
-        self.activateButton.setText("⏳ Reb⏳ Rebooting device...ooting device...")
-        Q")
-        QApplication.processApplication.processEventsEvents()
-        if()
-        if not self not self.reboot_device.reboot():
-            self_device():
-            self.log(".log("⚠ First⚠ First reboot failed — continuing anyway", reboot failed — continuing anyway", "w "warnarn")
-        self")
-        self.log(".log("Waiting Waiting 30 seconds30 seconds for iTunes for iTunesMetadata.plMetadata.plist toist to regenerate... regenerate...", "", "infoinfo")
-        self.activateButton.setText")
-        self.activateButton.setText("("⏳⏳ Waiting for iTunes Waiting forMetadata.plist iTunesMetadata.plist")
-       ")
-        for _ for _ in range(10):
- in range(10):
-                       time.sleep time.sleep(5(5)
-           )
-            self.log(" self.log(" ▫ Waiting ▫ Waiting...",...", "info "info")
-        src = "/iTunes_")
-        src = "/iTunes_Control/iControl/iTunesTunes/i/iTunesMetadataTunesMetadata.plist.plist"
-       "
-        dst_books = dst_books = "/Books "/Books/iTunes/iTunesMetadata.plMetadata.plistist"
-        tmp = os"
-        tmp = os.path.join.path.join(self.t(self.temp_diremp_dir, "temp_, "temp_plistplist_copy.pl_copy.plistist")
-        self")
-        self.log(f.log(f"Copy"Copying {src}ing {src} → { → {dst_dst_books}books}...",...", "info "info")
-       ")
-        if self if self.pull.pull_file(src_file(src,, tmp):
-            tmp):
-            if self.push_file if self.push_file(tmp, dst_books(tmp, dst_):
-                selfbooks.log("):
-                self.log("✅ Cop✅ Copied to /Booksied to /Books/ successfully/ successfully", "success", "success")
+        self.log("🔄 STAGE 1: First reboot + copy to /Books/...", "info")
+        self.activateButton.setText("⏳ Rebooting device...")
+        QApplication.processEvents()
+        if not self.reboot_device():
+            self.log("⚠ First reboot failed — continuing anyway", "warn")
+        self.log("Waiting 30 seconds for iTunesMetadata.plist to regenerate...", "info")
+        self.activateButton.setText("⏳ Waiting for iTunesMetadata.plist")
+        for _ in range(10):
+            time.sleep(5)
+            self.log(" ▫ Waiting...", "info")
+        src = "/iTunes_Control/iTunes/iTunesMetadata.plist"
+        dst_books = "/Books/iTunesMetadata.plist"
+        tmp = os.path.join(self.temp_dir, "temp_plist_copy.plist")
+        self.log(f"Copying {src} → {dst_books}...", "info")
+        if self.pull_file(src, tmp):
+            if self.push_file(tmp, dst_books):
+                self.log("✅ Copied to /Books/ successfully", "success")
             else:
-                self.log")
-            else:
-                self.log("⚠("⚠ Failed to Failed to push to push to /Books/", /Books/", "w "warn")
+                self.log("⚠ Failed to push to /Books/", "warn")
             try:
-               arn")
-            try:
-                os.remove(tmp os.remove(tmp)
-            except:
-               )
-            except:
-                pass
-        else pass
-       :
-            else:
-            self.log self.log("⚠("⚠ /iTunes_ /iTunes_Control/iControl/iTunes/iTunes/iTunesMetadata.plistTunesMetadata.plist not found not found — skipping — skipping copy to copy to /Books/", /Books "w/", "warnarn")
-        self")
-        self.activateButton.setText.activateButton.setText("("⏳⏳ Rebooting Rebooting device... device...")
-       ")
-        self.set self.setProgress(Progress(7575)
-        Q)
-        QApplication.processApplication.processEvents()
-
-        selfEvents()
-
-        self.log(".log("🔄🔄 ST STAGEAGE 2 2: Second reboot +: Second copy back reboot + copy back to / to /iTunesiTunes_Control_Control/.../...", "", "infoinfo")
-        if")
-        if not self not self.reboot_device.reboot_device():
-            self():
-            self.log(".log("⚠ Second reboot failed — continuing⚠ Second reboot failed — continuing anyway", anyway", "warn "warn")
-        time")
-        time.sleep(.sleep(10)
-10)
-        self.activate        self.activateButton.setTextButton.setText("("⏳ Copying⏳ Copying to / to /iTunesControl/iTunesControl/")
-        self.set")
-        self.setProgress(Progress(8585)
-        self)
-        self.log(f.log(f"Copy"Copying {ing {dst_dst_books}books} → {src} → {src}......",", "info "info")
-       ")
-        if self if self.pull.pull_file(d_file(dst_st_books,books, tmp):
-            if tmp):
-            if self.push_file(tmp, src self.push_file(tmp, src):
-               ):
-                self.log self.log("✅("✅ Copied back to Copied back to /i /iTunes_Tunes_Control/Control/ successfully", "success successfully", "success")
-            else")
-            else:
-                self:
-                self.log("⚠ Failed.log("⚠ Failed to restore to restore plist", " plist", "warn")
-           warn")
-            try try:
-                os:
                 os.remove(tmp)
-           .remove(tmp)
-            except except:
-                pass:
+            except:
                 pass
-       
-        else else:
-            self:
-            self.log("⚠ /.log("⚠ /Books/iBooks/iTunesMetadataTunesMetadata.plist.plist missing — copy-back skipped", missing — copy-back skipped", "w "warnarn")
+        else:
+            self.log("⚠ /iTunes_Control/iTunes/iTunesMetadata.plist not found — skipping copy to /Books/", "warn")
+        self.activateButton.setText("⏳ Rebooting device...")
+        self.setProgress(75)
+        QApplication.processEvents()
 
-        self")
+        self.log("🔄 STAGE 2: Second reboot + copy back to /iTunes_Control/...", "info")
+        if not self.reboot_device():
+            self.log("⚠ Second reboot failed — continuing anyway", "warn")
+        time.sleep(10)
+        self.activateButton.setText("⏳ Copying to /iTunesControl/")
+        self.setProgress(85)
+        self.log(f"Copying {dst_books} → {src}...", "info")
+        if self.pull_file(dst_books, tmp):
+            if self.push_file(tmp, src):
+                self.log("✅ Copied back to /iTunes_Control/ successfully", "success")
+            else:
+                self.log("⚠ Failed to restore plist", "warn")
+            try:
+                os.remove(tmp)
+            except:
+                pass
+        else:
+            self.log("⚠ /Books/iTunesMetadata.plist missing — copy-back skipped", "warn")
 
-        self.log(".log("⏸ Holding⏸ Holding 30 30s fors for bookasset bookassetd processingd processing...", "info...", "info")
-       ")
-        self. self.activateButton.setText("activateButton.setText("⏳ Waiting⏳ Waiting for book for bookassetdassetd...")
-        self...")
+        self.log("⏸ Holding 30s for bookassetd processing...", "info")
+        self.activateButton.setText("⏳ Waiting for bookassetd...")
         self.setProgress(90)
-       .setProgress(90)
-        time.sleep time.sleep(30(30)
+        time.sleep(30)
 
-       )
+        self.activateButton.setText("✅ Done! Activate your device as usual.")
+        self.setProgress(100)
+        self.log("🔄 Final reboot to trigger MobileActivation...", "info")
+        self.reboot_device()
+        time.sleep(5)
 
-        self. self.activateButtonactivateButton.setText(".setText("✅ Done✅ Done! Act! Activate yourivate your device as device as usual.")
-        self usual.")
-        self.setProgress.setProgress(100(100)
-       )
-        self.log self.log("🔄("🔄 Final reboot to Final reboot to trigger Mobile trigger MobileActivationActivation...",...", "info")
-        "info")
-        self.re self.reboot_deviceboot_device()
-       ()
-        time.sleep(5 time.sleep(5)
+        product = self.device_info.get("ProductType", "Device")
+        ios = self.device_info.get("iOSVersion", "")
+        dlg = SuccessDialog(self, device_name=product, ios_version=ios)
+        dlg.exec_()
 
-       )
+        self.pbFrame.hide()
+        self.activateButton.setText("Activate Device")
+        self.activateButton.setEnabled(True)
+        self.poll_timer.start(1000)
 
-        # Pop # Popup de succèsup de
-        succès
-        product = product = self.dev self.device_infoice_info.get("ProductType.get("ProductType", "", "DeviceDevice")
-        ios =")
-        ios self.device = self.device_info.get_info.get("iOS("iOSVersion",Version", "")
-        dlg = Success "")
-        dlg = SuccessDialog(self, deviceDialog(self, device_name=_name=productproduct,, ios_version ios_version=ios=ios)
-       )
-        dlg dlg.exec_.exec_()
+    def setProgress(self, progress: float):
+        new_width = round(progress * 5.04)
+        step = 1 if new_width > self.pb.width() else -1
+        while self.pb.width() != new_width:
+            time.sleep(0.004)
+            self.pb.setFixedWidth(self.pb.width() + step)
+            QApplication.processEvents()
 
-       ()
-
-        self.p self.pbFramebFrame.hide.hide()
-        self.()
-        self.activateButtonactivateButton.setText(".setText("ActActivateivate Device Device")
-        self.activate")
-        self.activateButton.setButton.setEnabled(TrueEnabled(True)
-        self)
-        self.poll_t.poll_timer.startimer.start(100(10000)
-
-    def)
-
-    def setProgress setProgress(self,(self, progress: float progress: float):
-        new):
-        new_width =_width = round( round(progress * 5progress * 5.04.04) )  #  # 504px504px / 100 / 100%
-        step%
-        step = 1 if new_width = 1 if new_width > self.pb.width() > self.pb.width() else - else -11
-        while
-        while self.p self.pb.widthb.width() != new_width() !=:
-            time.sleep new_width:
-            time.sleep(0(0.004)
-           .004)
-            self.p self.pb.setb.setFixedWidthFixedWidth(self.p(self.pb.width() +b.width() + step step)
-            QApplication.process)
-            QApplication.processEventsEvents()
-
-   ()
-
-    def SearchingDevices(self def SearchingDev):
-       ices(self """Background):
-        """Background thread: détection thread: détection device et device et mise à mise à jour de self.dev jour de self.device_infoice_info"""
-       """
+    def SearchingDevices(self):
         while True:
-            while True # Util:
-           iser # Utiliser _run _run_cmd_cmd pour pour une meilleure une meilleure robustesse robustesse
-           
-            code, output, code, _ = output, _ = self._ self._run_crun_cmd(["md(["idevideviceinfoiceinfo"])
-            if code"])
-            if code !=  != 0:
-                self0.device:
-                self.device_info =_info = {}
-                {}
-                time.sleep time.sleep(2(2)
-                continue)
-               
-
-            try continue
+            code, output, _ = self._run_cmd(["ideviceinfo"])
+            if code != 0:
+                self.device_info = {}
+                time.sleep(2)
+                continue
 
             try:
-               :
-                ProductVersion ProductVersion = output = output.split("ProductVersion.split("ProductVersion: ")[1: ")[1].split].split("\n")[0]
-                ProductType = output.split("ProductType: "("\n")[0]
+                ProductVersion = output.split("ProductVersion: ")[1].split("\n")[0]
                 ProductType = output.split("ProductType: ")[1].split("\n")[0]
-                UDID =)[1].split("\n")[0]
-                UDID = output output.split.split("Unique("UniqueDeviceIDDeviceID: ")[1: ")[1].split].split("\n("\n")")[0]
-                Device[0]
-                DeviceName =Name = output.split output.split("Device("DeviceName: "Name: ")[1].split("\)[1].split("\n")n")[0[0]
-                ActivationState]
-                = output ActivationState = output.split(".split("ActivationActivationState:State: " ")[1].)[1].split("\split("\n")[0n")]
-               [0]
-                SerialNumber SerialNumber = output.split(" = output.split("SerialNumberSerialNumber: ": ")[1)[1].split("\n].split("\n")")[0] if "SerialNumber[0] if "SerialNumber: ": " in output in output else else ""
-                I ""
-                IMEMEI = outputI = output.split(".split("InternationalMobileInternationalMobileEquipmentIdentityEquipmentIdentity: ")[1].split: ")[1].split("\n("\n")")[0][0] if " if "InternationalMobileEquipmentIdentityInternationalMobileEquipmentIdentity: ": " in output in output else ""
-                UniqueChipID = else ""
-                UniqueChipID = output.split output.split("Unique("UniqueChipChipID: "ID:)[1]. "split("\)[1].split("\n")[0n")[0] if] if "UniqueChip "UniqueChipID:ID: " in " in output else output else ""
-            ""
-            except Exception except Exception as e as e:
-                self.log:
-               (f" self.log(f"Could notCould not parse device info: parse device info: {e {e}", "}", "error")
-                selferror.showPopup")
-                self.showPopup("Error("Error", "", "Could notCould not get device get device info!", info!", "warning "warning")
-                time.sleep")
-                time.sleep(2(2)
-)
-                continue                continue
+                UDID = output.split("UniqueDeviceID: ")[1].split("\n")[0]
+                DeviceName = output.split("DeviceName: ")[1].split("\n")[0]
+                ActivationState = output.split("ActivationState: ")[1].split("\n")[0]
+                SerialNumber = output.split("SerialNumber: ")[1].split("\n")[0] if "SerialNumber: " in output else ""
+                IMEI = output.split("InternationalMobileEquipmentIdentity: ")[1].split("\n")[0] if "InternationalMobileEquipmentIdentity: " in output else ""
+                UniqueChipID = output.split("UniqueChipID: ")[1].split("\n")[0] if "UniqueChipID: " in output else ""
+            except Exception as e:
+                self.log(f"Could not parse device info: {e}", "error")
+                self.showPopup("Error", "Could not get device info!", "warning")
+                time.sleep(2)
+                continue
 
-            self.device
-
-            self.device_info =_info = {
-                "ProductType": {
-                "ProductType": ProductType ProductType,
-                "iOSVersion":,
-                "iOSVersion": ProductVersion ProductVersion,
-               ,
-                "UD "UDID": UDIDID": UDID,
-                ",
-                "DeviceNameDeviceName": Device": DeviceName,
-                "ActivationName,
-                "ActivationState":State": ActivationState ActivationState,
-               ,
-                "SerialNumber "SerialNumber":": SerialNumber SerialNumber,
-               ,
-                "IME "IMEI": IMEI": IMEI,
-                "I,
-                "UniqueCUniqueChipIDhipID": UniqueChip": UniqueIDChipID,
-           ,
+            self.device_info = {
+                "ProductType": ProductType,
+                "iOSVersion": ProductVersion,
+                "UDID": UDID,
+                "DeviceName": DeviceName,
+                "ActivationState": ActivationState,
+                "SerialNumber": SerialNumber,
+                "IMEI": IMEI,
+                "UniqueChipID": UniqueChipID,
             }
-            self }
-            self.log(".log("Device connectedDevice connected!", "!", "success")
-            selfsuccess")
-            self.log(f.log(f"Det"Detected deviceected device: {ProductType: {ProductType} iOS} iOS {Product {ProductVersion}",Version}", "none")
-            "none")
-            supported_ supported_versions =versions = {"26 {"26.0.0.1.1", "", "26.026.", "180", "18.7.7.2.2", "", "18.18.7.7.11"}
-            if"}
-            if ProductVersion ProductVersion in supported in supported_versions:
-               _versions:
-                self.log self.log("Device("Device is SU is SUPPORTED!", "PPORTED!", "successsuccess")
-            else")
+            self.log("Device connected!", "success")
+            self.log(f"Detected device: {ProductType} iOS {ProductVersion}", "none")
+            supported_versions = {"26.0.1", "26.0", "18.7.2", "18.7.1"}
+            if ProductVersion in supported_versions:
+                self.log("Device is SUPPORTED!", "success")
             else:
-               :
-                self.log self.log(f"(f"⚠ Device⚠ Device iOS { iOS {ProductVersion} not officiallyProductVersion} not officially supported supported", "", "warnwarn")
-           ")
-            time.sleep(2 time.sleep(2)
+                self.log(f"⚠ Device iOS {ProductVersion} not officially supported", "warn")
+            time.sleep(2)
 
-    def log)
-
-    def log(self,(self, text: text: str, type: str, type: str = str = "info "info"):
-       "):
-        colors = colors = {
-            {
-            "info": "# "info": "#88AA88AAFF",
-            "FF",
-            "warning":warning": "#FFFF "#FFFF88",
-            "88warn",
-            "warn": "#": "#FFFF88FFFF88",
-            "error":",
-            "error": "# "#FF666FF66666",
-            "",
-            "success":success": "#66 "#66FF88FF88",
-           ",
-            "attempt": "# "attempt": "#88CCFF88CCFF",
-            "",
-            "progress":progress": "#CCCCCC "#CCCCCC",
-            "none",
-            "none": "#": "#D0D8D0D8FFFF",
-       ",
+    def log(self, text: str, type: str = "info"):
+        colors = {
+            "info": "#88AAFF",
+            "warning": "#FFFF88",
+            "warn": "#FFFF88",
+            "error": "#FF6666",
+            "success": "#66FF88",
+            "attempt": "#88CCFF",
+            "progress": "#CCCCCC",
+            "none": "#D0D8FF",
         }
-        color }
-        color = colors = colors.get(type.get(type, "#, "#FFFFFF")
-        prefixFFFFFF")
-        prefix = = {
-            " {
-            "info":info": " "ℹ",
-            "ℹ",
-            "warning": "⚠warning": "⚠",
-           ",
-            "warn": "warn": "⚠ "⚠",
-            "error",
-            "error": "": "✗✗",
-           ",
-            "success "success": "✓": "✓",
-            "attempt":",
-            "attempt": "⟳ "⟳",
-            "",
+        color = colors.get(type, "#FFFFFF")
+        prefix = {
+            "info": "ℹ",
+            "warning": "⚠",
+            "warn": "⚠",
+            "error": "✗",
+            "success": "✓",
+            "attempt": "⟳",
             "progress": "⏳",
             "none": "•",
-        }.progress": "⏳",
-            "none": "•",
-        }.get(typeget(type, ", "•")
-        timestamp•")
-        timestamp = datetime = datetime.datetime.now.datetime.now().str().strftime("%ftime("%H:%M:%S")
-        lineH:%M:%S")
-        line = f = f''<span style<span style="color:{color="color:{color};">};">[{timestamp[{timestamp}] {prefix}}] {prefix} {text {text}</span}</span>'
-        self.status_label>'
-        self.status_label.setText(text.setText(text)
-       )
-        self.status self.status_label.setVisible(_label.setVisible(TrueTrue)
-        Q)
-        QApplication.processApplication.processEvents()
-        print(fEvents()
-        print(f"[{timestamp}] {"[{timestamp}] {prefix} {textprefix} {text}"}")
+        }.get(type, "•")
+        timestamp = datetime.datetime.now().strftime("%H:%M:%S")
+        line = f'<span style="color:{color};">[{timestamp}] {prefix} {text}</span>'
+        self.status_label.setText(text)
+        self.status_label.setVisible(True)
+        QApplication.processEvents()
+        print(f"[{timestamp}] {prefix} {text}")
 
 
-if __)
-
-
-if __name__name__ == "__main == "__main__":
-    #__":
-    # Configurer le Configurer le PATH avant tout
-    PATH avant tout
+if __name__ == "__main__":
     configure_path()
-    configure_path()
-    app = app = QApplication QApplication(sys.argv(sys.argv)
-   )
-    app.set app.setApplicationNameApplicationName("MobiDoc("MobiDoc A12 A12++")
-    icon")
-    icon_path =_path = resource_path resource_path("img("img/logo/logo.ic.icns")
-    ifns")
-    if os.path os.path.exists(icon_path.exists(icon_path):
-       ):
-        app.set app.setWindowIconWindowIcon(QIcon(QIcon(icon(icon_path_path))
-    window))
-    window = Main = MainWindow()
-    windowWindow()
-    window.show.show()
-    sys.exit(app()
-    sys.exit(app.exec.exec())
+    app = QApplication(sys.argv)
+    app.setApplicationName("MobiDoc A12+")
+    icon_path = resource_path("img/logo.icns")
+    if os.path.exists(icon_path):
+        app.setWindowIcon(QIcon(icon_path))
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec())
