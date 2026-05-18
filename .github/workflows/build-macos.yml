@@ -10,7 +10,7 @@ jobs:
     runs-on: macos-latest
 
     steps:
-    - name: Checkout
+    - name: Checkout code
       uses: actions/checkout@v4
 
     - name: Set up Python 3.11
@@ -18,11 +18,13 @@ jobs:
       with:
         python-version: "3.11"
 
-    - name: Install dependencies
+    - name: Install Python dependencies
       run: |
         python3 -m pip install --upgrade pip
         pip install nuitka
-        pip install -r requirements.txt
+        pip install pyside6 pymobiledevice3 colorama certifi
+        # Si tu as un requirements.txt, tu peux aussi l'utiliser :
+        # pip install -r requirements.txt
 
     - name: Build app with Nuitka
       run: |
@@ -36,8 +38,16 @@ jobs:
           --standalone \
           Rust-main.py
 
+    - name: Find and display .app bundle
+      run: |
+        echo "Contents of current directory:"
+        ls -la
+        echo "Searching for .app bundles:"
+        find . -name "*.app" -type d
+
     - name: Upload .app artifact
       uses: actions/upload-artifact@v4
       with:
         name: MobiDoc-A12+
-        path: Rust-main.dist/Rust-main.app
+        path: "**/*.app"          # Capture n'importe quel .app trouvé
+        if-no-files-found: error   # Échoue si aucun .app n'est trouvé
