@@ -13,10 +13,10 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Set up Python 3.13
+    - name: Set up Python 3.11
       uses: actions/setup-python@v5
       with:
-        python-version: "3.13"
+        python-version: "3.11"
 
     - name: Install dependencies
       run: |
@@ -28,14 +28,15 @@ jobs:
         python3 -m nuitka \
           --macos-create-app-bundle \
           --enable-plugin=pyside6 \
-          --macos-app-icon=img/ios26hello.icns \
+          --macos-app-name="MobiDoc A12+" \
+          --macos-app-icon=img/logo.icns \
           --include-data-dir=img=img \
           --include-data-dir=fonts=fonts \
+          --standalone \
           Rust-main.py
 
     - name: Upload .app artifact
       uses: actions/upload-artifact@v4
       with:
-        name: rust-macos-app
-        path: |
-          *.app
+        name: MobiDoc-A12+
+        path: Rust-main.dist/Rust-main.app
