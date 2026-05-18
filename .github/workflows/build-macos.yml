@@ -21,6 +21,7 @@ jobs:
     - name: Install dependencies
       run: |
         python3 -m pip install --upgrade pip
+        pip install nuitka
         pip install -r requirements.txt
 
     - name: Build app with Nuitka
